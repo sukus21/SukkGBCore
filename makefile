@@ -7,8 +7,8 @@ LINKER			:=	rgblink
 FIXER			:=	rgbfix
 
 # Project name/directory
-PROJECT_NAME	:=	$(shell basename "$(CURDIR)")
-HEADER_NAME		:=	$(shell echo $(PROJECT_NAME) | tr '[:lower:]' '[:upper:]')
+PROJECT_NAME	:=	sukkcore
+HEADER_NAME		:=	SUKKCORE
 
 # Project file directories
 INC_DIR			:=	include/

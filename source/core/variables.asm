@@ -1,4 +1,5 @@
 INCLUDE "hardware.inc"
+INCLUDE "entitysystem.inc"
 
 ;Allocate 256 bytes for the stack, just to be safe
 stack_size equ $100
@@ -19,6 +20,12 @@ variables_init::
     ld hl, w_variables ;Start of variable space
     ld bc, var_w0 ;Initial variable data
     ld de, var_w0_end - var_w0 ;Data length
+    call memcopy
+
+    ;Copy WRAM1 variables
+    ld hl, w_entsys ;Start of variable space
+    ld bc, var_w1 ;Initial variable data
+    ld de, var_w1_end - var_w1 ;Data length
     call memcopy
 
     ;Copy HRAM variables
@@ -82,12 +89,114 @@ var_w0:
             dw $0000, $0000, $0000, $0000
         ;
 
+        ;Entity creation variables
+        w_entalloc_buffer::
+        w_entalloc_x:: db $00
+        w_entalloc_y:: db $00
+        w_entalloc_type:: db $00
+        w_entalloc_tag:: db $00
+        w_entalloc_extra_count:: db $00
+        w_entalloc_extra:: ds 32
+
         ;That intro thing
         w_intro_state:: db $00
         w_intro_timer:: db $00
         ;
     ENDL
     var_w0_end:
+;
+
+;Contains initial values for all entities.
+var_w1:
+    LOAD "WRAM1 VARIABLES", WRAMX, ALIGN[8]
+        
+        ;Regular entities
+        w_entsys::
+            REPT entity_count
+                
+                ;Execute
+                IF !DEF(w_entsys_execute)
+                    w_entsys_execute::
+                ENDC
+                w_entsys_execute_\@:
+                jr @+(66 - 2) ;By default, entity is disabled
+                ld de, (@ & $FFC0) | entity_variables ;Load DE with entity data pointer
+                ld b, $FF ;Bank in which entity's code is stored
+                ld hl, $FFFF ;Code address
+                call bank_call_0 ;Bank switch and jump
+                jr @+(66 - 15) ;Go to next entity
+
+                ;Allocate
+                IF !DEF(w_entsys_alloc)
+                    
+                    ; Loops through each entity in WRAMX.
+                    ; Crash screen appears if no entity slots are free.
+                    ;
+                    ; Output:
+                    ; `hl`: Starting address of free entity
+                    w_entsys_alloc::
+                    ;
+                ENDC
+                w_entity_alloc_\@:
+                db $00, $00
+                ld hl, (@ & $FFC0) | entity_pointer
+                ret 
+
+                ;Collision
+                IF !DEF(w_entsys_collision)
+                    w_entsys_collision::
+                ENDC
+                w_entity_collision_\@:
+                jr @+(66 - 2)
+                and a, c
+                jr z, @+(66 - 5) ;Jump if collision mask doesn't match
+                ld de, (@ & $FFC0) | entity_variables ;Load own variables
+                ld hl, $40 + (@ & $FFC0) | entity_collision ;Store next entity address in HL
+                ret
+
+                ;Variables
+                w_entsys_variables_\@:
+                w_entity_state_\@: db $00
+                w_entity_x_\@: dw $000C
+                w_entity_y_\@: dw $0006
+                w_entity_status_\@: db $00
+                w_entity_hspp_\@: db $00
+                w_entity_vspp_\@: db $00
+                w_entity_type_\@: db $00
+                w_entity_tag_\@: db $00
+                w_entity_sprite_\@: db $00
+                w_entity_health_\@: db $00
+                
+                ;Slack
+                ds entity_variable_slack
+            ENDR
+        ;
+
+        ;Terminator entity
+        w_entsys_terminator::
+            
+            ;Execute
+            w_entsys_terminator_execute::
+            ret 
+            ds 14
+
+            ;Allocate
+            w_entsys_terminator_alloc::
+            ld h, $FF
+            ret 
+            ds 3
+
+            ;Collision
+            w_entsys_terminator_collision::
+            ld d, $FF
+            ret
+            ds 12
+
+            ;Variables
+            ds 28
+        ;
+    ENDL
+    var_w1_end:
 ;
 
 ; Contains the initial values for all HRAM variables.
