@@ -138,7 +138,8 @@ var_w1:
                     ;
                 ENDC
                 w_entity_alloc_\@:
-                db $00, $00
+                nop 
+                nop 
                 ld hl, (@ & $FFC0) | entity_pointer
                 ret 
 
